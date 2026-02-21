@@ -115,7 +115,15 @@
             letter-spacing: 1px;
         }
 
-        .shuffle-btn {
+        .day-card { cursor: pointer; }
+
+        .btn-row {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 30px;
+        }
+
+        .shuffle-btn, .calendar-btn {
             background: #5C3D2E;
             color: white;
             border: none;
@@ -128,14 +136,136 @@
             letter-spacing: 1px;
         }
 
-        .shuffle-btn:hover {
-            background: #8B6914;
+        .calendar-btn { background: #8B6914; }
+
+        .shuffle-btn:hover, .calendar-btn:hover {
+            background: #A0522D;
             transform: scale(1.05);
         }
 
-        .shuffle-btn:active {
+        .shuffle-btn:active, .calendar-btn:active {
             transform: scale(0.97);
         }
+
+        /* Modal overlay */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .modal-overlay.open { display: flex; }
+
+        .modal {
+            background: #FFF8E7;
+            border-radius: 20px;
+            padding: 28px 24px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 12px;
+            right: 16px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #5C3D2E;
+        }
+
+        .modal h2 {
+            color: #5C3D2E;
+            margin-bottom: 16px;
+            font-size: 1.4rem;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .history-date { font-size: 0.85rem; opacity: 0.7; }
+        .history-food { font-size: 1.05rem; }
+
+        /* Calendar view */
+        .cal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .cal-nav {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #5C3D2E;
+            padding: 4px 10px;
+        }
+
+        .cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+
+        .cal-day-header {
+            text-align: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #8B6914;
+            text-transform: uppercase;
+            padding: 4px 0;
+        }
+
+        .cal-cell {
+            text-align: center;
+            border-radius: 10px;
+            padding: 6px 2px;
+            min-height: 52px;
+            font-size: 0.65rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        .cal-cell.has-food {
+            cursor: default;
+        }
+
+        .cal-date {
+            font-weight: 700;
+            font-size: 0.8rem;
+            color: #5C3D2E;
+            margin-bottom: 2px;
+        }
+
+        .cal-food {
+            font-weight: 600;
+            font-size: 0.6rem;
+            line-height: 1.2;
+            word-break: break-word;
+        }
+
+        .cal-cell.today { outline: 2px solid #5C3D2E; }
+        .cal-cell.empty { background: transparent; }
 
         @media (max-width: 600px) {
             h1 { font-size: 1.8rem; }
@@ -148,6 +278,9 @@
                 padding: 18px 12px;
             }
             .food-name { font-size: 1.15rem; }
+            .btn-row { flex-direction: column; align-items: center; gap: 10px; }
+            .shuffle-btn, .calendar-btn { padding: 14px 32px; font-size: 1rem; }
+            .cal-food { font-size: 0.55rem; }
         }
     </style>
 </head>
@@ -157,7 +290,26 @@
 
     <div class="week-container" id="weekContainer"></div>
 
-    <button class="shuffle-btn" id="shuffleBtn">Shuffle</button>
+    <div class="btn-row">
+        <button class="shuffle-btn" id="shuffleBtn">Shuffle</button>
+        <button class="calendar-btn" id="calendarBtn">📅 Calendar</button>
+    </div>
+
+    <!-- Day history modal -->
+    <div class="modal-overlay" id="historyModal">
+        <div class="modal">
+            <button class="modal-close" onclick="closeModals()">&times;</button>
+            <div id="historyContent"></div>
+        </div>
+    </div>
+
+    <!-- Calendar modal -->
+    <div class="modal-overlay" id="calendarModal">
+        <div class="modal">
+            <button class="modal-close" onclick="closeModals()">&times;</button>
+            <div id="calendarContent"></div>
+        </div>
+    </div>
 
     <script>
         const WEEKDAY_FOODS = [
@@ -176,10 +328,14 @@
             { name: 'Cereal', color: '#F5DEB3', textColor: '#5C4A20' },
         ];
 
+        const ALL_FOODS = [...WEEKDAY_FOODS, ...WEEKEND_FOODS];
         const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
         let currentPlan = [];
         let locked = [false, false, false, false, false, false, false];
+        let history = {}; // { "YYYY-MM-DD": "FoodName" }
+        let calMonth = new Date().getMonth();
+        let calYear = new Date().getFullYear();
 
         function shuffle(arr) {
             const copy = [...arr];
@@ -194,7 +350,6 @@
             const plan = [];
             const foods = WEEKDAY_FOODS;
             let lastIndex = -1;
-
             for (let i = 0; i < 5; i++) {
                 let available = foods.filter((_, idx) => idx !== lastIndex);
                 let pick = available[Math.floor(Math.random() * available.length)];
@@ -213,15 +368,40 @@
             const weekdays = generateWeekdayPlan();
             const weekend = generateWeekendPlan();
             const newPlan = [...weekdays, ...weekend];
-
-            // Keep locked days
             if (currentPlan.length === 7) {
                 for (let i = 0; i < 7; i++) {
                     if (locked[i]) newPlan[i] = currentPlan[i];
                 }
             }
-
             return newPlan;
+        }
+
+        // Get the actual date for each day index (Mon=0..Sun=6) of the current week
+        function getCurrentWeekDates() {
+            const today = new Date();
+            const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
+            const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const monday = new Date(today);
+            monday.setDate(today.getDate() + mondayOffset);
+            const dates = [];
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(monday);
+                d.setDate(monday.getDate() + i);
+                dates.push(d.toISOString().split('T')[0]);
+            }
+            return dates;
+        }
+
+        function saveHistory() {
+            localStorage.setItem('yaeli-history', JSON.stringify(history));
+        }
+
+        function recordPlan(plan) {
+            const dates = getCurrentWeekDates();
+            dates.forEach((date, i) => {
+                history[date] = plan[i].name;
+            });
+            saveHistory();
         }
 
         function savePlan() {
@@ -233,15 +413,120 @@
             try {
                 const saved = localStorage.getItem('yaeli-plan');
                 const savedLocked = localStorage.getItem('yaeli-locked');
+                const savedHistory = localStorage.getItem('yaeli-history');
                 if (saved) currentPlan = JSON.parse(saved);
                 if (savedLocked) locked = JSON.parse(savedLocked);
+                if (savedHistory) history = JSON.parse(savedHistory);
             } catch (e) { /* ignore */ }
         }
 
-        function toggleLock(index) {
+        function toggleLock(index, e) {
+            e.stopPropagation();
             locked[index] = !locked[index];
             savePlan();
             renderWeek(currentPlan);
+        }
+
+        function foodColor(name) {
+            const f = ALL_FOODS.find(f => f.name === name);
+            return f ? { color: f.color, textColor: f.textColor } : { color: '#E8D5B7', textColor: '#4A3520' };
+        }
+
+        // Show history for a specific day of the week
+        function showDayHistory(dayIndex) {
+            const dayName = DAYS[dayIndex];
+            const jsDay = dayIndex === 6 ? 0 : dayIndex + 1; // Convert Mon=0..Sun=6 to JS 0=Sun
+            const entries = [];
+            const now = new Date();
+            // Look back 30 days
+            for (let i = 0; i < 30; i++) {
+                const d = new Date(now);
+                d.setDate(now.getDate() - i);
+                if (d.getDay() === jsDay) {
+                    const key = d.toISOString().split('T')[0];
+                    if (history[key]) {
+                        entries.push({ date: key, food: history[key] });
+                    }
+                }
+            }
+
+            const modal = document.getElementById('historyModal');
+            const content = document.getElementById('historyContent');
+
+            if (entries.length === 0) {
+                content.innerHTML = `<h2>${dayName} History</h2><p style="color:#8B6914;padding:10px 0;">No history yet. Shuffle a few times over the coming weeks!</p>`;
+            } else {
+                content.innerHTML = `<h2>${dayName} — Last Month</h2>` +
+                    entries.map(e => {
+                        const c = foodColor(e.food);
+                        const dateStr = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        return `<div class="history-item" style="background:${c.color};color:${c.textColor}">
+                            <span class="history-date">${dateStr}</span>
+                            <span class="history-food">${e.food}</span>
+                        </div>`;
+                    }).join('');
+            }
+
+            modal.classList.add('open');
+        }
+
+        function closeModals() {
+            document.getElementById('historyModal').classList.remove('open');
+            document.getElementById('calendarModal').classList.remove('open');
+        }
+
+        // Calendar view
+        function renderCalendar() {
+            const content = document.getElementById('calendarContent');
+            const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+            const firstDay = new Date(calYear, calMonth, 1);
+            const lastDay = new Date(calYear, calMonth + 1, 0);
+            // Monday-based: 0=Mon..6=Sun
+            let startDow = firstDay.getDay() - 1;
+            if (startDow < 0) startDow = 6;
+
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+
+            let html = `<div class="cal-header">
+                <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
+                <h2>${monthNames[calMonth]} ${calYear}</h2>
+                <button class="cal-nav" onclick="changeMonth(1)">›</button>
+            </div>`;
+
+            html += '<div class="cal-grid">';
+            ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d => {
+                html += `<div class="cal-day-header">${d}</div>`;
+            });
+
+            // Empty cells before first day
+            for (let i = 0; i < startDow; i++) {
+                html += '<div class="cal-cell empty"></div>';
+            }
+
+            for (let d = 1; d <= lastDay.getDate(); d++) {
+                const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const food = history[dateStr];
+                const isToday = dateStr === todayStr;
+                const c = food ? foodColor(food) : { color: '#f5f0e6', textColor: '#999' };
+
+                html += `<div class="cal-cell ${food ? 'has-food' : ''} ${isToday ? 'today' : ''}" style="background:${c.color};color:${c.textColor}">
+                    <span class="cal-date">${d}</span>
+                    ${food ? `<span class="cal-food">${food}</span>` : ''}
+                </div>`;
+            }
+
+            html += '</div>';
+            content.innerHTML = html;
+            document.getElementById('calendarModal').classList.add('open');
+        }
+
+        function changeMonth(delta) {
+            calMonth += delta;
+            if (calMonth > 11) { calMonth = 0; calYear++; }
+            if (calMonth < 0) { calMonth = 11; calYear--; }
+            renderCalendar();
         }
 
         function renderWeek(plan) {
@@ -254,12 +539,13 @@
                 card.className = 'day-card';
                 card.style.backgroundColor = food.color;
                 card.style.color = food.textColor;
+                card.onclick = () => showDayHistory(i);
 
                 const isWeekend = i >= 5;
                 const lockIcon = locked[i] ? '🔒' : '🔓';
 
                 card.innerHTML = `
-                    <button class="lock-btn ${locked[i] ? 'locked' : ''}" onclick="toggleLock(${i})" title="${locked[i] ? 'Unlock' : 'Lock'} this day">${lockIcon}</button>
+                    <button class="lock-btn ${locked[i] ? 'locked' : ''}" onclick="toggleLock(${i}, event)" title="${locked[i] ? 'Unlock' : 'Lock'} this day">${lockIcon}</button>
                     <div class="day-name">${DAYS[i]}</div>
                     <div class="food-name">${food.name}</div>
                     ${isWeekend ? '<div class="weekend-label">WEEKEND</div>' : ''}
@@ -269,7 +555,13 @@
             });
 
             savePlan();
+            recordPlan(plan);
         }
+
+        // Close modals on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(el => {
+            el.addEventListener('click', e => { if (e.target === el) closeModals(); });
+        });
 
         // Load saved plan or generate new one
         loadPlan();
@@ -281,6 +573,12 @@
 
         document.getElementById('shuffleBtn').addEventListener('click', () => {
             renderWeek(generateWeek());
+        });
+
+        document.getElementById('calendarBtn').addEventListener('click', () => {
+            calMonth = new Date().getMonth();
+            calYear = new Date().getFullYear();
+            renderCalendar();
         });
 
         // Register service worker for PWA
