@@ -117,6 +117,13 @@
 
         .day-card { cursor: pointer; }
 
+        .day-card.today-card {
+            outline: 4px solid;
+            outline-offset: 3px;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.18);
+        }
+
         .btn-row {
             display: flex;
             gap: 14px;
@@ -540,6 +547,14 @@
                 card.style.backgroundColor = food.color;
                 card.style.color = food.textColor;
                 card.onclick = () => showDayHistory(i);
+
+                // Highlight today's card
+                const todayDow = new Date().getDay(); // 0=Sun
+                const todayIndex = todayDow === 0 ? 6 : todayDow - 1; // convert to Mon=0..Sun=6
+                if (i === todayIndex) {
+                    card.classList.add('today-card');
+                    card.style.outlineColor = food.textColor;
+                }
 
                 const isWeekend = i >= 5;
                 const lockIcon = locked[i] ? '🔒' : '🔓';
