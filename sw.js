@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yaeli-planner-v1';
+const CACHE_NAME = 'yaeli-planner-v2';
 const ASSETS = ['/', '/yaeli-breakfast-planner/', '/yaeli-breakfast-planner/index.html'];
 
 self.addEventListener('install', e => {
