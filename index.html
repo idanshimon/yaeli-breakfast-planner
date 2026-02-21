@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Yaeli's Planner">
+    <meta name="theme-color" content="#FFF8E7">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <title>Yaeli's Breakfast Planner</title>
     <style>
         * {
@@ -56,11 +62,34 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
+            position: relative;
         }
 
         .day-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .lock-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            opacity: 0.4;
+            transition: opacity 0.2s;
+            padding: 4px;
+            line-height: 1;
+        }
+
+        .lock-btn:hover {
+            opacity: 0.8;
+        }
+
+        .lock-btn.locked {
+            opacity: 1;
         }
 
         .day-name {
@@ -149,6 +178,9 @@
 
         const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+        let currentPlan = [];
+        let locked = [false, false, false, false, false, false, false];
+
         function shuffle(arr) {
             const copy = [...arr];
             for (let i = copy.length - 1; i > 0; i--) {
@@ -174,17 +206,46 @@
 
         function generateWeekendPlan() {
             const shuffled = shuffle(WEEKEND_FOODS);
-            // Pick 2 different foods for Sat and Sun
             return [shuffled[0], shuffled[1]];
         }
 
         function generateWeek() {
             const weekdays = generateWeekdayPlan();
             const weekend = generateWeekendPlan();
-            return [...weekdays, ...weekend];
+            const newPlan = [...weekdays, ...weekend];
+
+            // Keep locked days
+            if (currentPlan.length === 7) {
+                for (let i = 0; i < 7; i++) {
+                    if (locked[i]) newPlan[i] = currentPlan[i];
+                }
+            }
+
+            return newPlan;
+        }
+
+        function savePlan() {
+            localStorage.setItem('yaeli-plan', JSON.stringify(currentPlan));
+            localStorage.setItem('yaeli-locked', JSON.stringify(locked));
+        }
+
+        function loadPlan() {
+            try {
+                const saved = localStorage.getItem('yaeli-plan');
+                const savedLocked = localStorage.getItem('yaeli-locked');
+                if (saved) currentPlan = JSON.parse(saved);
+                if (savedLocked) locked = JSON.parse(savedLocked);
+            } catch (e) { /* ignore */ }
+        }
+
+        function toggleLock(index) {
+            locked[index] = !locked[index];
+            savePlan();
+            renderWeek(currentPlan);
         }
 
         function renderWeek(plan) {
+            currentPlan = plan;
             const container = document.getElementById('weekContainer');
             container.innerHTML = '';
 
@@ -195,8 +256,10 @@
                 card.style.color = food.textColor;
 
                 const isWeekend = i >= 5;
+                const lockIcon = locked[i] ? '🔒' : '🔓';
 
                 card.innerHTML = `
+                    <button class="lock-btn ${locked[i] ? 'locked' : ''}" onclick="toggleLock(${i})" title="${locked[i] ? 'Unlock' : 'Lock'} this day">${lockIcon}</button>
                     <div class="day-name">${DAYS[i]}</div>
                     <div class="food-name">${food.name}</div>
                     ${isWeekend ? '<div class="weekend-label">WEEKEND</div>' : ''}
@@ -204,15 +267,26 @@
 
                 container.appendChild(card);
             });
+
+            savePlan();
         }
 
-        // Initial render
-        renderWeek(generateWeek());
+        // Load saved plan or generate new one
+        loadPlan();
+        if (currentPlan.length === 7) {
+            renderWeek(currentPlan);
+        } else {
+            renderWeek(generateWeek());
+        }
 
-        // Shuffle button
         document.getElementById('shuffleBtn').addEventListener('click', () => {
             renderWeek(generateWeek());
         });
+
+        // Register service worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
     </script>
 </body>
 </html>
