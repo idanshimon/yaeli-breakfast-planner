@@ -414,6 +414,12 @@
         function savePlan() {
             localStorage.setItem('yaeli-plan', JSON.stringify(currentPlan));
             localStorage.setItem('yaeli-locked', JSON.stringify(locked));
+            localStorage.setItem('yaeli-week', getCurrentWeekDates()[0]); // save Monday's date
+        }
+
+        function isNewWeek() {
+            const savedWeek = localStorage.getItem('yaeli-week');
+            return !savedWeek || savedWeek !== getCurrentWeekDates()[0];
         }
 
         function loadPlan() {
@@ -578,11 +584,12 @@
             el.addEventListener('click', e => { if (e.target === el) closeModals(); });
         });
 
-        // Load saved plan or generate new one
+        // Load saved plan or generate new one; auto-reshuffle on new week
         loadPlan();
-        if (currentPlan.length === 7) {
+        if (currentPlan.length === 7 && !isNewWeek()) {
             renderWeek(currentPlan);
         } else {
+            locked = [false, false, false, false, false, false, false];
             renderWeek(generateWeek());
         }
 
