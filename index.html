@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yaeli's Breakfast Planner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #FFF8E7, #FFE4C4);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: #5C3D2E;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: #8B6914;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .week-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 18px;
+            max-width: 900px;
+            width: 100%;
+            margin-bottom: 30px;
+        }
+
+        .day-card {
+            border-radius: 16px;
+            padding: 24px 16px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: default;
+            min-height: 160px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .day-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .day-name {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 14px;
+            opacity: 0.7;
+        }
+
+        .food-name {
+            font-size: 1.4rem;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        .weekend-label {
+            font-size: 0.7rem;
+            margin-top: 10px;
+            opacity: 0.5;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .shuffle-btn {
+            background: #5C3D2E;
+            color: white;
+            border: none;
+            padding: 16px 40px;
+            font-size: 1.15rem;
+            font-weight: 700;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.15s ease;
+            letter-spacing: 1px;
+        }
+
+        .shuffle-btn:hover {
+            background: #8B6914;
+            transform: scale(1.05);
+        }
+
+        .shuffle-btn:active {
+            transform: scale(0.97);
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 1.8rem; }
+            .week-container {
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+            .day-card {
+                min-height: 130px;
+                padding: 18px 12px;
+            }
+            .food-name { font-size: 1.15rem; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Yaeli's Breakfast Planner</h1>
+    <p class="subtitle">Your weekly breakfast, all planned out!</p>
+
+    <div class="week-container" id="weekContainer"></div>
+
+    <button class="shuffle-btn" id="shuffleBtn">Shuffle</button>
+
+    <script>
+        const WEEKDAY_FOODS = [
+            { name: 'Croissants', color: '#D4A574', textColor: '#4A2C17' },
+            { name: 'Cheerios', color: '#E8D5B7', textColor: '#4A3520' },
+            { name: 'Cinnamon Toast Crunch', color: '#C68642', textColor: '#3E1F00' },
+        ];
+
+        const WEEKEND_FOODS = [
+            { name: 'Eggs', color: '#FFD700', textColor: '#5C4A00' },
+            { name: 'Pancakes', color: '#D2956A', textColor: '#3E1A00' },
+            { name: 'French Toast', color: '#FFBF00', textColor: '#5C4400' },
+            { name: 'Waffles', color: '#F0C75E', textColor: '#5C4400' },
+            { name: 'Yogurt', color: '#F5E6E0', textColor: '#6B4040' },
+            { name: 'Toast', color: '#C9A96E', textColor: '#3E2A0E' },
+            { name: 'Cereal', color: '#F5DEB3', textColor: '#5C4A20' },
+        ];
+
+        const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+        function shuffle(arr) {
+            const copy = [...arr];
+            for (let i = copy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+            }
+            return copy;
+        }
+
+        function generateWeekdayPlan() {
+            const plan = [];
+            const foods = WEEKDAY_FOODS;
+            let lastIndex = -1;
+
+            for (let i = 0; i < 5; i++) {
+                let available = foods.filter((_, idx) => idx !== lastIndex);
+                let pick = available[Math.floor(Math.random() * available.length)];
+                lastIndex = foods.indexOf(pick);
+                plan.push(pick);
+            }
+            return plan;
+        }
+
+        function generateWeekendPlan() {
+            const shuffled = shuffle(WEEKEND_FOODS);
+            // Pick 2 different foods for Sat and Sun
+            return [shuffled[0], shuffled[1]];
+        }
+
+        function generateWeek() {
+            const weekdays = generateWeekdayPlan();
+            const weekend = generateWeekendPlan();
+            return [...weekdays, ...weekend];
+        }
+
+        function renderWeek(plan) {
+            const container = document.getElementById('weekContainer');
+            container.innerHTML = '';
+
+            plan.forEach((food, i) => {
+                const card = document.createElement('div');
+                card.className = 'day-card';
+                card.style.backgroundColor = food.color;
+                card.style.color = food.textColor;
+
+                const isWeekend = i >= 5;
+
+                card.innerHTML = `
+                    <div class="day-name">${DAYS[i]}</div>
+                    <div class="food-name">${food.name}</div>
+                    ${isWeekend ? '<div class="weekend-label">WEEKEND</div>' : ''}
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        // Initial render
+        renderWeek(generateWeek());
+
+        // Shuffle button
+        document.getElementById('shuffleBtn').addEventListener('click', () => {
+            renderWeek(generateWeek());
+        });
+    </script>
+</body>
+</html>
